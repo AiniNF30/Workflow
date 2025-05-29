@@ -27,8 +27,6 @@ def train_and_log_model(run_name_suffix, tracking_uri=None):
     if tracking_uri is not None:
         mlflow.set_tracking_uri(tracking_uri)
     
-    mlflow.set_experiment("energy_efficiency")
-    
     with mlflow.start_run(run_name=f"RandomForest_MultiOutput_{run_name_suffix}"):
         base_model = RandomForestRegressor(random_state=random_state)
         model = MultiOutputRegressor(base_model)
