@@ -1,0 +1,60 @@
+import pandas as pd
+import mlflow
+import mlflow.sklearn
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.multioutput import MultiOutputRegressor
+from sklearn.metrics import mean_squared_error, r2_score
+from mlflow.models.signature import infer_signature
+
+random_state = 42
+train_path = "train_data.csv"
+test_path = "test_data.csv"
+model_artifact_path = "model"
+
+# Load pre-split train and test sets
+train_df = pd.read_csv(train_path)
+test_df = pd.read_csv(test_path)
+
+X_train = train_df.drop(columns=["Heating_Load", "Cooling_Load"])
+y_train = train_df[["Heating_Load", "Cooling_Load"]]
+X_test = test_df.drop(columns=["Heating_Load", "Cooling_Load"])
+y_test = test_df[["Heating_Load", "Cooling_Load"]]
+
+def train_and_log_model(run_name_suffix, tracking_uri=None):
+    if tracking_uri is not None:
+        mlflow.set_tracking_uri(tracking_uri)
+    
+    mlflow.set_experiment("energy_efficiency")
+    
+    with mlflow.start_run(run_name=f"RandomForest_MultiOutput_{run_name_suffix}"):
+        base_model = RandomForestRegressor(random_state=random_state)
+        model = MultiOutputRegressor(base_model)
+        model.fit(X_train, y_train)
+        
+        y_pred = model.predict(X_test)
+        
+        # Log parameters
+        mlflow.log_param("model_type", "MultiOutputRandomForest")
+        mlflow.log_param("input_features", X_train.shape[1])
+        mlflow.log_param("random_state", random_state)
+        
+        # Log metrics per target
+        for i, target in enumerate(["Heating_Load", "Cooling_Load"]):
+            rmse = mean_squared_error(y_test.iloc[:, i], y_pred[:, i], squared=False)
+            r2 = r2_score(y_test.iloc[:, i], y_pred[:, i])
+            mlflow.log_metric(f"rmse_test_{target}", rmse)
+            mlflow.log_metric(f"r2_test_{target}", r2)
+        
+        # Log model with input example and signature
+        input_example = X_test.iloc[:1]
+        signature = infer_signature(X_test, y_pred)
+        
+        mlflow.sklearn.log_model(
+            model,
+            artifact_path=model_artifact_path,
+            input_example=input_example,
+            signature=signature
+        )
+
+if __name__ == "__main__":
+    train_and_log_model(run_name_suffix="modelling")
