@@ -48,7 +48,7 @@ jobs:
       # (Opsional) Cek apakah model ada
       - name: Check if model exists
         run: |
-          ls -lah MLProject/mlruns/0/${{ steps.get_run_id.outputs.run_id }}/$MODEL_ARTIFACT_PATH
+          ls -lah MLProject/mlruns/${{ steps.get_run_id.outputs.run_id }}/$MODEL_ARTIFACT_PATH
 
       # Buat Docker image dari MLflow model
       - name: Build Docker image from MLflow model
