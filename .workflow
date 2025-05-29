@@ -1,56 +1,59 @@
-name: Train and Deploy Model with MLflow Docker
+name: CI/CD MLflow
 
 on:
   push:
-    branches: [master]
-  workflow_dispatch:
-    
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
 env:
-  MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING: false
-  MLFLOW_AUTOLOG_INPUT_DATASETS: false
-  
+  MODEL_ARTIFACT_PATH: "model"
+
 jobs:
-  train-and-deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: 3.11
+      - name: Setup Python 3.12.7
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.12.7
 
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-    - name: Run training script and save model
-      run: mlflow run MLProject --env-manager=local 
+      - name: Run training script with MLflow tracking
+        run: |
+          python MLProject/modelling.py
 
-    - name: Get latest MLflow run_id
-      run: |
-        RUN_ID=$(ls -td mlruns/0/*/ | head -n 1 | cut -d'/' -f3)
-        echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
-        echo "Latest run_id: $RUN_ID"
-    
-    - name: Save the artifact to GitHub
-      uses: actions/upload-artifact@v4
-      with:
-        name: artifact
-        path: ./mlruns
+      - name: Get latest MLflow run_id
+        id: get_run_id
+        run: |
+          RUN_ID=$(ls -td MLProject/mlruns/0/*/ | head -n 1 | cut -d'/' -f4)
+          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+          echo "Run ID: $RUN_ID"
 
-    - name: Build MLflow Docker image
-      run: |
-        mlflow models build-docker --model-uri runs:/$RUN_ID/model --name equehours/ml-model:latest
+      - name: Build Docker image from MLflow model
+        run: |
+          mlflow models build-docker --model-uri "runs:/$RUN_ID/$MODEL_ARTIFACT_PATH" --name "energy-model"
 
-    - name: Log in to DockerHub
-      uses: docker/login-action@v2
-      with:
-        username: equehours
-        password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-    - name: Push Docker image
-      run: |
-        docker push equehours/ml-model:latest
+      - name: Tag Docker image
+        run: |
+          docker tag energy-model ${{ secrets.DOCKER_HUB_USERNAME }}/energy-model:latest
+
+      - name: Push Docker image to Docker Hub
+        run: |
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/energy-model:latest
