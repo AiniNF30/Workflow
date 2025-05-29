@@ -42,7 +42,7 @@ jobs:
 
       - name: Build Docker image from MLflow model
         run: |
-          mlflow models build-docker --model-uri "runs:/$RUN_ID/$MODEL_ARTIFACT_PATH" --name "energy-model"
+          mlflow models build-docker --model-uri "runs:/${{ env.RUN_ID }}/$MODEL_ARTIFACT_PATH" --name "energy-model"
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
