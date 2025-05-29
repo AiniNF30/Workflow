@@ -5,10 +5,13 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 from mlflow.models.signature import infer_signature
+import os
 
+# Setup
 random_state = 42
-train_path = "train_data.csv"
-test_path = "test_data.csv"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+train_path = os.path.join(BASE_DIR, "train_data.csv")
+test_path = os.path.join(BASE_DIR, "test_data.csv")
 model_artifact_path = "model"
 
 # Load pre-split train and test sets
