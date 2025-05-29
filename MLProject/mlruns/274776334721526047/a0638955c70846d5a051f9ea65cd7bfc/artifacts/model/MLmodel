@@ -1,0 +1,36 @@
+artifact_path: model
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.12.7
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.5.2
+mlflow_version: 2.18.0
+model_size_bytes: 11063601
+model_uuid: 7107122b4bad4ecc8e6f09062cce71fa
+run_id: a0638955c70846d5a051f9ea65cd7bfc
+saved_input_example_info:
+  artifact_path: input_example.json
+  pandas_orient: split
+  serving_input_path: serving_input_example.json
+  type: dataframe
+signature:
+  inputs: '[{"type": "double", "name": "Relative_Compactness", "required": true},
+    {"type": "double", "name": "Surface_Area", "required": true}, {"type": "double",
+    "name": "Wall_Area", "required": true}, {"type": "double", "name": "Roof_Area",
+    "required": true}, {"type": "double", "name": "Overall_Height", "required": true},
+    {"type": "long", "name": "Orientation", "required": true}, {"type": "double",
+    "name": "Glazing_Area", "required": true}, {"type": "long", "name": "Glazing_Area_Distribution",
+    "required": true}]'
+  outputs: '[{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1,
+    2]}}]'
+  params: null
+utc_time_created: '2025-05-29 14:06:22.518113'
