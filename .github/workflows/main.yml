@@ -47,7 +47,7 @@ jobs:
     - name: Build MLflow Docker image
       run: |
         mlflow models build-docker \
-          --model-uri runs:/${{ steps.get_run_id.outputs.run_id }}/energy-model \
+          --model-uri runs:/${{ steps.get_run_id.outputs.run_id }}/model \
           --name energy-model
 
     - name: Log in to Docker Hub
