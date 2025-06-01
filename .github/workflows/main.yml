@@ -1,83 +1,62 @@
-name: CI/CD MLflow
+name: Train and Deploy Model with MLflow Docker
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+    branches: [main] 
+  workflow_dispatch:
 
 env:
-  MODEL_ARTIFACT_PATH: "model"
+  MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING: false
+  MLFLOW_AUTOLOG_INPUT_DATASETS: false
 
 jobs:
-  build:
+  train-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout kode
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      # Setup Python
-      - name: Setup Python 3.12.7
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.12.7
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.12.7
 
-      # Install dependensi
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
 
-      # Jalankan training model (tracking ke MLflow)
-      - name: Run training script with MLflow tracking
-        run: |
-          python MLProject/modelling.py
+    - name: Run training script using MLflow
+      run: |
+        mlflow run MLProject --env-manager=local
 
-      # Ambil run_id terbaru dari MLflow
-      - name: Get latest MLflow run_id
-        id: get_run_id
-        run: |
-          RUN_ID=$(ls -td MLProject/mlruns/0/*/ | head -n 1 | cut -d'/' -f4)
-          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
-          echo "Run ID: $RUN_ID"
+    - name: Get latest MLflow run_id
+      id: get_run_id
+      run: |
+        RUN_ID=$(ls -td mlruns/0/*/ | head -n 1 | cut -d'/' -f3)
+        echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+        echo "Latest run_id: $RUN_ID"
 
-      # (Opsional) Cek apakah model ada
-      - name: Check if model exists
-        run: |
-          ls -lah MLProject/mlruns/0/${{ steps.get_run_id.outputs.run_id }}/$MODEL_ARTIFACT_PATH
+    - name: Upload mlruns as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: mlruns
+        path: ./mlruns
 
-      # Buat Docker image dari MLflow model
-      - name: Build Docker image from MLflow model
-        run: |
-          mlflow models build-docker \
-            --model-uri "runs:/${{ steps.get_run_id.outputs.run_id }}/$MODEL_ARTIFACT_PATH" \
-            --name "energy-model"
+    - name: Build MLflow Docker image
+      run: |
+        mlflow models build-docker \
+          --model-uri runs:/${{ steps.get_run_id.outputs.run_id }}/model \
+          --name ml-model
 
-      # Buat tag image (dari tanggal)
-      - name: Set Docker tag
-        id: set_tag
-        run: |
-          TAG=$(date +%Y%m%d-%H%M)
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "Docker tag: $TAG"
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-      # Login Docker Hub
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-
-      # Tag Docker image
-      - name: Tag Docker Image
-        run: |
-          docker tag energy-model ${{ secrets.DOCKER_HUB_USERNAME }}/energy-model:${{ steps.set_tag.outputs.tag }}
-
-      # Push Docker image ke Docker Hub
-      - name: Push Docker Image to Docker Hub
-        run: |
-          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/energy-model:${{ steps.set_tag.outputs.tag }}
+    - name: Tag and Push Docker image
+      run: |
+        docker tag ml-model ${{ secrets.DOCKER_HUB_USERNAME }}/ml-model:latest
+        docker push ${{ secrets.DOCKER_HUB_USERNAME }}/ml-model:latest
