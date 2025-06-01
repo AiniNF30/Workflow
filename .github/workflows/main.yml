@@ -5,13 +5,13 @@ on:
     branches: [main]
   workflow_dispatch:
 
-env:
-  MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING: false
-  MLFLOW_AUTOLOG_INPUT_DATASETS: false
-
 jobs:
   train-and-deploy:
     runs-on: ubuntu-latest
+
+    env:
+      MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING: false
+      MLFLOW_AUTOLOG_INPUT_DATASETS: false
 
     steps:
     - name: Checkout repository
@@ -50,14 +50,12 @@ jobs:
           --model-uri runs:/${{ steps.get_run_id.outputs.run_id }}/model \
           --name energy-model
 
-          
-     - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
- 
     - name: Tag and Push Docker image
       run: |
         docker tag energy-model ${{ secrets.DOCKER_HUB_USERNAME }}/energy-model:latest
