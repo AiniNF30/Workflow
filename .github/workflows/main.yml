@@ -14,49 +14,76 @@ jobs:
       MLFLOW_AUTOLOG_INPUT_DATASETS: false
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+    - name: Set up job
+      run: echo "Job started"
 
-    - name: Set up Python
+    - name: Checkout code with PAT token
+      uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.PAT_TOKEN }}
+
+    - name: Set up Python 3.12.7
       uses: actions/setup-python@v4
       with:
         python-version: 3.12.7
 
+    - name: Check Env
+      run: |
+        echo "Python version:"
+        python --version
+        echo "Current directory: $(pwd)"
     - name: Install dependencies
       run: |
         pip install --upgrade pip
         pip install -r requirements.txt
-
-    - name: Run training script using MLflow
+    - name: Run MLflow project
       run: |
         mlflow run MLProject --env-manager=local
-
     - name: Get latest MLflow run_id
       id: get_run_id
       run: |
         RUN_ID=$(ls -td mlruns/0/*/ | head -n 1 | cut -d'/' -f3)
         echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
         echo "Latest run_id: $RUN_ID"
-
-    - name: Upload mlruns as artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: mlruns
-        path: ./mlruns
-
-    - name: Build MLflow Docker image
+    - name: Install Git LFS
+      run: |
+        sudo apt-get update
+        sudo apt-get install git-lfs -y
+        git lfs install
+    - name: Upload model to GitHub LFS and push
+      run: |
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git lfs track "mlruns/**"
+        git add .gitattributes
+        git add mlruns/
+        git commit -m "Add MLflow run ${{ steps.get_run_id.outputs.run_id }}" || echo "Nothing to commit"
+        git push origin HEAD:${{ github.ref_name }}
+    - name: Build Docker Model
       run: |
         mlflow models build-docker \
           --model-uri runs:/${{ steps.get_run_id.outputs.run_id }}/model \
           --name energy-model
-
     - name: Log in to Docker Hub
-      uses: docker/login-action@v2
+      uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
         password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-    - name: Tag and Push Docker image
+    - name: Tag Docker Image
       run: |
         docker tag energy-model ${{ secrets.DOCKER_HUB_USERNAME }}/energy-model:latest
+    - name: Push Docker Image
+      run: |
         docker push ${{ secrets.DOCKER_HUB_USERNAME }}/energy-model:latest
+    - name: Post Log in to Docker Hub
+      run: echo "Logged in and pushed Docker image."
+
+    - name: Post Set up Python 3.12.7
+      run: echo "Python setup done."
+
+    - name: Post Run actions/checkout@v3
+      run: echo "Checkout done."
+
+    - name: Complete job
+      run: echo "CI/CD job completed successfully."
