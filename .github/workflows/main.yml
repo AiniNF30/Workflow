@@ -38,6 +38,10 @@ jobs:
         pip install --upgrade pip
         pip install -r requirements.txt
 
+    - name: Clean old mlruns directory
+      run: |
+        rm -rf mlruns/
+
     - name: Run MLflow project
       run: |
         mlflow run MLProject --env-manager=local
@@ -45,7 +49,7 @@ jobs:
     - name: Get latest MLflow run_id
       id: get_run_id
       run: |
-        RUN_ID=$(ls -td mlruns/0/*/ | head -n 1 | cut -d'/' -f3)
+        RUN_ID=$(ls -td mlruns/0/*/ 2>/dev/null | head -n 1 | cut -d'/' -f3 || echo "none")
         echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
         echo "Latest run_id: $RUN_ID"
 
@@ -60,12 +64,13 @@ jobs:
         git config user.name "github-actions"
         git config user.email "github-actions@github.com"
         git lfs track "mlruns/**"
-        git add .gitattributes
-        git add mlruns/
+        git add .gitattributes || true
+        git add -f mlruns/ || true
         git commit -m "Add MLflow run ${{ steps.get_run_id.outputs.run_id }}" || echo "Nothing to commit"
         git push origin HEAD:${{ github.ref_name }}
 
     - name: Build Docker Model
+      if: ${{ steps.get_run_id.outputs.run_id != 'none' }}
       run: |
         mlflow models build-docker \
           --model-uri runs:/${{ steps.get_run_id.outputs.run_id }}/model \
@@ -78,10 +83,12 @@ jobs:
         password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
     - name: Tag Docker Image
+      if: ${{ steps.get_run_id.outputs.run_id != 'none' }}
       run: |
         docker tag energy-model ${{ secrets.DOCKER_HUB_USERNAME }}/energy-model:latest
 
     - name: Push Docker Image
+      if: ${{ steps.get_run_id.outputs.run_id != 'none' }}
       run: |
         docker push ${{ secrets.DOCKER_HUB_USERNAME }}/energy-model:latest
 
