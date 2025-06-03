@@ -26,24 +26,14 @@ y_test = test_df[["Heating_Load", "Cooling_Load"]]
 def train_and_log_model(run_name_suffix, tracking_uri=None):
     if tracking_uri is not None:
         mlflow.set_tracking_uri(tracking_uri)
-
-    # Set experiment (optional but recommended)
-    mlflow.set_experiment("energy-experiment")
-
+    
     with mlflow.start_run(run_name=f"RandomForest_MultiOutput_{run_name_suffix}"):
-        # Set tags (this is the correct way to log tags)
-        mlflow.set_tags({
-            "author": "Aini",
-            "model": "RandomForest_MultiOutput",
-            "version": "v1"
-        })
-
         base_model = RandomForestRegressor(random_state=random_state)
         model = MultiOutputRegressor(base_model)
         model.fit(X_train, y_train)
         
         y_pred = model.predict(X_test)
-
+        
         # Log parameters
         mlflow.log_param("model_type", "MultiOutputRandomForest")
         mlflow.log_param("input_features", X_train.shape[1])
@@ -59,7 +49,7 @@ def train_and_log_model(run_name_suffix, tracking_uri=None):
         # Log model with input example and signature
         input_example = X_test.iloc[:1]
         signature = infer_signature(X_test, y_pred)
-
+        
         mlflow.sklearn.log_model(
             model,
             artifact_path=model_artifact_path,
